@@ -2,7 +2,7 @@
 
 An intelligent, hybrid AI ranking engine designed to evaluate and rank 100K candidates for a Senior AI Engineer role. Built for the "Data & AI Challenge", this engine goes beyond simple keyword matching by semantically understanding career trajectories, production experience signals, and behavioral patterns to surface the genuinely best-fit candidates.
 
-## 🚀 Features
+## Features
 
 *   **Semantic Skill Clusters:** Matches skills conceptually (e.g., matching "FAISS" to the `vector_databases` cluster) rather than requiring exact keyword hits.
 *   **Trust-Weighted Skill Scoring:** Validates skills using endorsements, stated proficiency, and duration. Penalizes keyword stuffers who list "expert" skills without any actual experience.
@@ -15,7 +15,7 @@ An intelligent, hybrid AI ranking engine designed to evaluate and rank 100K cand
 *   **Personalized Reasoning:** Automatically generates a human-readable justification for why a candidate received their specific score.
 *   **SQLite Integration:** Pre-computes all features and rankings into a `redrob_candidates.db` SQLite database for seamless integration with backend APIs.
 
-## 🏗 Architecture
+## Architecture
 
 1.  **Data Loading & Cleaning:** Stream-loads the 100K JSONL file, normalizing text and filtering anomalies.
 2.  **Feature Extraction:** Extracts over 50 numerical and boolean features across career history, education, and behavioral signals.
@@ -24,7 +24,7 @@ An intelligent, hybrid AI ranking engine designed to evaluate and rank 100K cand
 5.  **Persistence:** Saves pre-computed artifacts and an SQLite database.
 6.  **Inference:** Rapidly ranks the top candidates within seconds.
 
-## 💻 Installation & Usage
+## Installation & Usage
 
 ### Prerequisites
 *   Python 3.11+
@@ -55,14 +55,14 @@ Verify that the output format strictly adheres to the challenge specifications:
 python validate_submission.py submission.csv
 ```
 
-## 📊 Evaluation Results
+## Evaluation Results
 The ranking algorithm successfully surfaces the exact profile described in the Job Description. The Top 10 results yield:
 *   **100% Product-Company background** (Engineers from Netflix, Flipkart, Microsoft, Amazon, etc.)
 *   **Average ML/AI Experience:** 5.85 years
 *   **0 Honeypots** or consulting-only mismatches in the Top 100.
 *   **Ranking Inference Time:** ~2.7 seconds on CPU (well under the 5-minute limit).
 
-## 📂 Project Structure
+## Project Structure
 *   `src/data_loader.py` - JSONL streaming and parsing
 *   `src/data_cleaner.py` - Text normalization and validation
 *   `src/feature_extractor.py` - 50+ feature derivations
