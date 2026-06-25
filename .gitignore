@@ -37,3 +37,15 @@ submission.csv
 *.db
 *.pkl
 *.npy
+
+# Frontend build artifacts
+frontend/node_modules/
+frontend/dist/
+frontend/.vite/
+
+# Editor / OS
+.vscode/
+.idea/
+.DS_Store
+*.swp
+
