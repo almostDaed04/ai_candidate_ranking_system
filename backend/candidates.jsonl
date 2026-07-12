@@ -1,0 +1,9 @@
+import requests
+import json
+
+url = "https://your-bucket.s3.amazonaws.com/candidates.jsonl"
+
+response = requests.get(url)
+response.raise_for_status()
+
+candidates = [json.loads(line) for line in response.text.splitlines()]
