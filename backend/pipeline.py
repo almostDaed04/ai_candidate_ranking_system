@@ -12,10 +12,8 @@ from __future__ import annotations
 
 import json
 import logging
-import os
 import sys
 import time
-import uuid
 from pathlib import Path
 from typing import Optional
 
@@ -167,14 +165,16 @@ def run_full_pipeline(
 ) -> None:
     """
     Execute the full ML pipeline in the background and store results to DB.
-    
+
     Steps:
-    1. Prepare data (feature extraction + embeddings) — writes to precomputed/
-    2. Rank candidates using the precomputed artifacts
-    3. Generate human-readable reasoning
-    4. Persist ranked results to SQLite
+    1. Resolve the candidates.jsonl path
+    2. Populate the candidates table
+    3. Prepare data (feature extraction + embeddings) - writes to precomputed/
+    4. Rank candidates using the precomputed artifacts
+    5. Generate human-readable reasoning
+    6. Persist ranked results to SQLite
     """
-    from backend.database import get_connection, init_db
+    from backend.database import get_connection
     from backend.crud import (
         upsert_rankings_batch,
         finish_pipeline_run,
@@ -188,14 +188,46 @@ def run_full_pipeline(
     logger.info(f"[run_id={run_id}] Pipeline starting for job_id={job_id}")
 
     try:
-        # ── Step 1: Populate candidates table ────────────────────────────────
-        if not Path(candidates_path).exists():
-            raise FileNotFoundError(f"candidates file not found: {candidates_path}")
+        # ── Step 1: Resolve candidates.jsonl automatically ─────────────────
+        candidate_file = Path(candidates_path)
 
+        if not candidate_file.is_absolute():
+            possible_paths = [
+                ROOT_DIR / candidates_path,
+                ROOT_DIR / "backend" / candidates_path,
+                ROOT_DIR / "backend" / "candidates.jsonl",
+                ROOT_DIR / "candidates.jsonl",
+                Path.cwd() / candidates_path,
+                Path.cwd() / "backend" / "candidates.jsonl",
+            ]
+
+            for p in possible_paths:
+                logger.info(f"Checking candidate file: {p}")
+                if p.exists():
+                    candidate_file = p
+                    logger.info(f"Using candidate file: {candidate_file}")
+                    break
+
+        if not candidate_file.exists():
+            tried = [
+                ROOT_DIR / candidates_path,
+                ROOT_DIR / "backend" / candidates_path,
+                ROOT_DIR / "backend" / "candidates.jsonl",
+                ROOT_DIR / "candidates.jsonl",
+                Path.cwd() / candidates_path,
+                Path.cwd() / "backend" / "candidates.jsonl",
+            ]
+            raise FileNotFoundError(
+                "Candidates file not found. Tried:\n" + "\n".join(str(p) for p in tried)
+            )
+
+        candidates_path = str(candidate_file)
+
+        # ── Step 2: Populate candidates table ───────────────────────────────
         logger.info("[Pipeline] Populating candidates table...")
         total = _populate_candidates_to_db(conn, candidates_path)
 
-        # ── Step 2: Run data preparation (src pipeline) ───────────────────
+        # ── Step 3: Run data preparation (src pipeline) ─────────────────────
         logger.info("[Pipeline] Running feature extraction & embeddings...")
         from src.data_preparation import prepare_all_data
 
@@ -203,10 +235,10 @@ def run_full_pipeline(
             candidates_path=candidates_path,
             output_dir=str(PRECOMPUTED_DIR),
             embedding_mode=embedding_mode,
-            populate_sqlite=False,  # We already handled it above
+            populate_sqlite=False,  # already handled above
         )
 
-        # ── Step 3: Load tuned weights if available ───────────────────────
+        # ── Step 4: Load tuned weights if available ──────────────────────────
         weights = None
         weights_path = PRECOMPUTED_DIR / "best_weights.json"
         if weights_path.exists():
@@ -214,7 +246,7 @@ def run_full_pipeline(
                 weights = json.load(f)
             logger.info(f"[Pipeline] Using tuned weights: {weights}")
 
-        # ── Step 4: Rank candidates ───────────────────────────────────────
+        # ── Step 5: Rank candidates ──────────────────────────────────────────
         logger.info("[Pipeline] Ranking candidates...")
         from src.ranking_engine import rank_candidates
 
@@ -224,17 +256,17 @@ def run_full_pipeline(
             top_k=top_k,
         )
 
-        # ── Step 5: Generate reasoning ────────────────────────────────────
+        # ── Step 6: Generate reasoning ─────────────────────────────────────
         logger.info("[Pipeline] Generating reasoning strings...")
         from src.reasoning_generator import generate_all_reasoning
 
         ranked = generate_all_reasoning(ranked, str(PRECOMPUTED_DIR))
 
-        # ── Step 6: Persist rankings ──────────────────────────────────────
+        # ── Step 7: Persist rankings ───────────────────────────────────────
         logger.info("[Pipeline] Saving rankings to SQLite...")
         upsert_rankings_batch(conn, job_id, ranked)
 
-        # ── Step 7: Mark job as done ──────────────────────────────────────
+        # ── Step 8: Mark job as done ───────────────────────────────────────
         update_job_status(conn, job_id, "done")
         finish_pipeline_run(conn, run_id, status="done", total_candidates=total)
 
